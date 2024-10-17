@@ -1,0 +1,5 @@
+streamlit
+requests
+markdown
+beautifulsoup4
+python-docx
