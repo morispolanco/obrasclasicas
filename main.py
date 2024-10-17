@@ -7,19 +7,19 @@ from io import BytesIO
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Manual Universitario",
+    page_title="Generador de Estudios de Obras Clásicas",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Título de la aplicación
-st.title("Generador de Manual Universitario")
+st.title("Generador de Estudios de Obras Clásicas")
 
 # Descripción de la aplicación
 st.markdown("""
-Esta aplicación genera automáticamente el título, descripción, tabla de contenidos y contenido de un manual universitario sobre el tema proporcionado. 
-Puedes generar los capítulos uno por uno, lo que te permite pausar el proceso en cualquier momento. Además, puedes editar la información inicial y regenerar capítulos específicos si lo deseas.
-Finalmente, puedes exportar el manual a un archivo en formato Word, ya sea completo o parcial.
+Esta aplicación genera automáticamente estudios detallados de grandes obras clásicas en campos como la literatura, filosofía, política, entre otros.
+Puedes generar secciones de análisis una por una, lo que te permite pausar el proceso en cualquier momento. Además, puedes editar la información inicial y regenerar secciones específicas si lo deseas.
+Finalmente, puedes exportar el estudio a un archivo en formato Word, ya sea completo o parcial, con referencias académicas incluidas.
 """)
 
 # Inicialización de variables en el estado de la sesión
@@ -29,29 +29,35 @@ if 'description' not in st.session_state:
     st.session_state.description = ""
 if 'table_of_contents' not in st.session_state:
     st.session_state.table_of_contents = []
-if 'chapters' not in st.session_state:
-    st.session_state.chapters = []  # Lista de diccionarios: [{'number': 1, 'title': 'Título', 'content': 'Contenido'}, ...]
-if 'current_chapter' not in st.session_state:
-    st.session_state.current_chapter = 1
-if 'total_chapters' not in st.session_state:
-    st.session_state.total_chapters = 12  # Total de capítulos
+if 'sections' not in st.session_state:
+    st.session_state.sections = []  # Lista de diccionarios: [{'number': 1, 'title': 'Título', 'content': 'Contenido'}, ...]
+if 'current_section' not in st.session_state:
+    st.session_state.current_section = 1
+if 'total_sections' not in st.session_state:
+    st.session_state.total_sections = 10  # Total de secciones, ajustable según necesidades
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
     st.session_state.generation_complete = False
-if 'selected_chapter' not in st.session_state:
-    st.session_state.selected_chapter = None
+if 'selected_section' not in st.session_state:
+    st.session_state.selected_section = None
+if 'references' not in st.session_state:
+    st.session_state.references = []  # Lista de referencias académicas
+if 'work_type' not in st.session_state:
+    st.session_state.work_type = ""  # Tipo de obra: literaria, filosófica, política, etc.
 
 # Función para reiniciar el estado de la sesión
 def reset_session():
     st.session_state.title = ""
     st.session_state.description = ""
     st.session_state.table_of_contents = []
-    st.session_state.chapters = []
-    st.session_state.current_chapter = 1
+    st.session_state.sections = []
+    st.session_state.current_section = 1
     st.session_state.markdown_content = ""
     st.session_state.generation_complete = False
-    st.session_state.selected_chapter = None
+    st.session_state.selected_section = None
+    st.session_state.references = []
+    st.session_state.work_type = ""
 
 # Función para llamar a la API de OpenRouter
 def call_openrouter_api(messages, model="qwen/qwen-2.5-72b-instruct"):
@@ -76,14 +82,15 @@ def call_openrouter_api(messages, model="qwen/qwen-2.5-72b-instruct"):
         return None
 
 # Función para generar título y descripción
-def generate_title_description(topic):
-    prompt = f"""Genera un título y una descripción para un manual universitario sobre el siguiente tema. El manual debe ser educativo y claro.
+def generate_title_description(work_title, work_type):
+    prompt = f"""Genera un título y una descripción para un estudio detallado de la siguiente obra clásica. El estudio debe ser educativo, claro y profesional.
     
-Tema: {topic}
-
+Título de la obra: {work_title}
+Tipo de obra: {work_type}
+    
 Formato de respuesta:
-Título: [Título del manual]
-Descripción: [Descripción del manual]
+Título del Estudio: [Título del estudio]
+Descripción: [Descripción del estudio]
 """
     messages = [
         {"role": "user", "content": prompt}
@@ -95,24 +102,25 @@ Descripción: [Descripción del manual]
         title = ""
         description = ""
         for line in lines:
-            if line.startswith("Título:"):
-                title = line.replace("Título:", "").strip()
+            if line.startswith("Título del Estudio:"):
+                title = line.replace("Título del Estudio:", "").strip()
             elif line.startswith("Descripción:"):
                 description = line.replace("Descripción:", "").strip()
         return title, description
     return None, None
 
 # Función para generar la tabla de contenidos
-def generate_table_of_contents(topic, total_chapters):
-    prompt = f"""Genera una tabla de contenidos para un manual universitario sobre el siguiente tema. La tabla debe contener {total_chapters} capítulos con títulos descriptivos y relevantes.
+def generate_table_of_contents(work_title, work_type, total_sections):
+    prompt = f"""Genera una tabla de contenidos para un estudio detallado de la siguiente obra clásica. La tabla debe contener {total_sections} secciones con títulos descriptivos y relevantes, adaptados al tipo de obra.
     
-Tema: {topic}
-
+Título de la obra: {work_title}
+Tipo de obra: {work_type}
+    
 Formato de respuesta:
-Capítulo 1: [Título del Capítulo 1]
-Capítulo 2: [Título del Capítulo 2]
+Sección 1: [Título de la Sección 1]
+Sección 2: [Título de la Sección 2]
 ...
-Capítulo {total_chapters}: [Título del Capítulo {total_chapters}]
+Sección {total_sections}: [Título de la Sección {total_sections}]
 """
     messages = [
         {"role": "user", "content": prompt}
@@ -121,23 +129,24 @@ Capítulo {total_chapters}: [Título del Capítulo {total_chapters}]
     if response:
         table = []
         for line in response.split('\n'):
-            if line.startswith("Capítulo"):
+            if line.startswith("Sección"):
                 parts = line.split(":")
                 if len(parts) >= 2:
-                    chap_num = int(parts[0].split(" ")[1])
-                    chap_title = parts[1].strip()
-                    table.append({"number": chap_num, "title": chap_title, "content": ""})
+                    sec_num = int(parts[0].split(" ")[1])
+                    sec_title = parts[1].strip()
+                    table.append({"number": sec_num, "title": sec_title, "content": "", "references": []})
         return table
     return None
 
-# Función para generar un título de capítulo
-def generate_chapter_title(topic, chapter_num):
-    prompt = f"""Genera un título único y descriptivo para el capítulo {chapter_num} de un manual universitario sobre el siguiente tema.
+# Función para generar un título de sección
+def generate_section_title(work_title, work_type, section_num):
+    prompt = f"""Genera un título único y descriptivo para la sección {section_num} de un estudio detallado de la siguiente obra clásica.
     
-Tema: {topic}
-
+Título de la obra: {work_title}
+Tipo de obra: {work_type}
+    
 Formato de respuesta:
-Título del Capítulo {chapter_num}: [Título Único]
+Título de la Sección {section_num}: [Título Único]
 """
     messages = [
         {"role": "user", "content": prompt}
@@ -146,28 +155,70 @@ Título del Capítulo {chapter_num}: [Título Único]
     if response:
         title = ""
         for line in response.split('\n'):
-            if line.startswith(f"Título del Capítulo {chapter_num}:"):
-                title = line.replace(f"Título del Capítulo {chapter_num}:", "").strip()
+            if line.startswith(f"Título de la Sección {section_num}:"):
+                title = line.replace(f"Título de la Sección {section_num}:", "").strip()
                 break
         return title
     return None
 
-# Función para generar un capítulo
-def generate_chapter(topic, chapter_num):
-    prompt = f"""Escribe el contenido del capítulo {chapter_num} para un manual universitario sobre el siguiente tema.
-    
-Tema: {topic}
-
-El capítulo debe tener aproximadamente 3000 tokens y estar estructurado de manera clara y educativa.
+# Función para generar una sección con análisis detallado
+def generate_section(work_title, work_type, section_num):
+    # Definir el tipo de análisis según el tipo de obra
+    if work_type.lower() == "literaria":
+        analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}".
+        
+Tipo de obra: Literatura
+        
+La sección debe incluir análisis de personajes, técnicas narrativas, contexto histórico, biografía del autor y cualquier otro análisis relevante.
+        
+El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
 """
+    elif work_type.lower() == "filosófica":
+        analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}".
+        
+Tipo de obra: Filosofía
+        
+La sección debe incluir estudio del autor, contexto histórico, ideas principales, discusiones académicas en torno a las ideas presentadas y cualquier otro análisis relevante.
+        
+El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
+"""
+    elif work_type.lower() == "política":
+        analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}".
+        
+Tipo de obra: Política
+        
+La sección debe incluir estudio del autor, contexto histórico, teorías políticas presentadas, impacto en la sociedad, discusiones académicas y cualquier otro análisis relevante.
+        
+El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
+"""
+    else:
+        analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}".
+        
+Tipo de obra: {work_type}
+        
+La sección debe incluir análisis detallado relevante al tipo de obra, estructurado de manera clara y educativa, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
+"""
+    
     messages = [
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": analysis_prompt}
     ]
     response = call_openrouter_api(messages)
     return response
 
+# Función para extraer referencias del contenido generado
+def extract_references(section_content):
+    # Asumiendo que las referencias están al final del contenido después de una sección llamada "Referencias"
+    references = []
+    if "Referencias" in section_content:
+        ref_section = section_content.split("Referencias")[-1]
+        for line in ref_section.split('\n'):
+            line = line.strip()
+            if line and (line.lower().startswith("apa") is False):  # Excluir posibles indicaciones de formato
+                references.append(line)
+    return references
+
 # Función para exportar a Word
-def export_to_word(markdown_content):
+def export_to_word(markdown_content, references):
     # Convertir Markdown a HTML
     html = markdown.markdown(markdown_content)
     
@@ -190,6 +241,12 @@ def export_to_word(markdown_content):
         elif element.name == 'p':
             doc.add_paragraph(element.get_text())
     
+    # Agregar sección de Referencias si existen
+    if references:
+        doc.add_heading("Referencias", level=2)
+        for ref in references:
+            doc.add_paragraph(ref, style='List Number')
+    
     # Guardar el documento en un objeto BytesIO
     buffer = BytesIO()
     doc.save(buffer)
@@ -207,55 +264,62 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Menú desplegable para ver capítulos generados
-    if st.session_state.chapters:
-        selected_chapter = st.selectbox(
-            "Selecciona un capítulo para ver:",
-            [f"Capítulo {chap['number']}" for chap in st.session_state.chapters],
-            key="select_chapter"
+    # Menú desplegable para ver secciones generadas
+    if st.session_state.sections:
+        selected_section = st.selectbox(
+            "Selecciona una sección para ver:",
+            [f"Sección {sec['number']}" for sec in st.session_state.sections],
+            key="select_section"
         )
-        chapter_index = int(selected_chapter.split(" ")[1]) - 1
+        section_index = int(selected_section.split(" ")[1]) - 1
         # Verificar que el índice esté dentro del rango
-        if 0 <= chapter_index < len(st.session_state.chapters):
-            st.session_state.selected_chapter = chapter_index
+        if 0 <= section_index < len(st.session_state.sections):
+            st.session_state.selected_section = section_index
         else:
-            st.error("Capítulo seleccionado no válido.")
+            st.error("Sección seleccionada no válida.")
     else:
-        st.info("No hay capítulos generados aún.")
+        st.info("No hay secciones generadas aún.")
 
 # --- Sección Principal ---
 
-# Entrada de usuario para el tema
-topic = st.text_input("Ingresa el tema de tu manual universitario:", "")
+# Entrada de usuario para el título de la obra
+work_title = st.text_input("Ingresa el título de la obra clásica:", "")
+
+# Selección del tipo de obra
+work_type = st.selectbox(
+    "Selecciona el tipo de obra:",
+    ["Literaria", "Filosófica", "Política", "Otro"],
+    index=0
+)
 
 # Botón para generar título, descripción y tabla de contenidos
 if not st.session_state.title:
     if st.button("Generar Título, Descripción y Tabla de Contenidos"):
-        if not topic:
-            st.warning("Por favor, ingresa un tema para generar el manual.")
+        if not work_title:
+            st.warning("Por favor, ingresa el título de la obra para generar el estudio.")
         else:
             with st.spinner("Generando título, descripción y tabla de contenidos..."):
-                title, description = generate_title_description(topic)
+                title, description = generate_title_description(work_title, work_type)
                 if title and description:
-                    table_of_contents = generate_table_of_contents(topic, st.session_state.total_chapters)
+                    table_of_contents = generate_table_of_contents(work_title, work_type, st.session_state.total_sections)
                     if table_of_contents:
                         st.session_state.title = title
                         st.session_state.description = description
                         st.session_state.table_of_contents = table_of_contents
                         # Construir el contenido Markdown
                         st.session_state.markdown_content = f"# {title}\n\n{description}\n\n## Tabla de Contenidos\n\n"
-                        for chap in table_of_contents:
-                            st.session_state.markdown_content += f"{chap['number']}. {chap['title']}\n"
+                        for sec in table_of_contents:
+                            st.session_state.markdown_content += f"{sec['number']}. {sec['title']}\n"
                         st.session_state.markdown_content += "\n"
-                        # Inicializar la lista de capítulos sin contenido
-                        st.session_state.chapters = [{"number": chap['number'], "title": chap['title'], "content": ""} for chap in table_of_contents]
+                        # Inicializar la lista de secciones sin contenido
+                        st.session_state.sections = [{"number": sec['number'], "title": sec['title'], "content": "", "references": []} for sec in table_of_contents]
                         st.success("Título, descripción y tabla de contenidos generados exitosamente.")
                         st.subheader("Título")
                         st.write(title)
                         st.subheader("Descripción")
                         st.write(description)
                         st.subheader("Tabla de Contenidos")
-                        st.write("1. " + "\n2. ".join([chap['title'] for chap in table_of_contents]))
+                        st.write("1. " + "\n2. ".join([sec['title'] for sec in table_of_contents]))
                     else:
                         st.error("No se pudo generar la tabla de contenidos.")
                 else:
@@ -269,18 +333,18 @@ if st.session_state.title and st.session_state.description and st.session_state.
     st.header("Editar Información Inicial")
     
     with st.form("edit_initial_info"):
-        # Editar Título
-        edited_title = st.text_input("Título del Manual:", st.session_state.title)
+        # Editar Título del Estudio
+        edited_title = st.text_input("Título del Estudio:", st.session_state.title)
         
-        # Editar Descripción
-        edited_description = st.text_area("Descripción del Manual:", st.session_state.description, height=200)
+        # Editar Descripción del Estudio
+        edited_description = st.text_area("Descripción del Estudio:", st.session_state.description, height=200)
         
         # Editar Tabla de Contenidos
         st.subheader("Tabla de Contenidos")
         edited_table = []
-        for chap in st.session_state.chapters:
-            edited_title_chap = st.text_input(f"Capítulo {chap['number']}:", chap['title'], key=f"chap_{chap['number']}")
-            edited_table.append({"number": chap['number'], "title": edited_title_chap, "content": chap['content']})
+        for sec in st.session_state.sections:
+            edited_title_sec = st.text_input(f"Sección {sec['number']}:", sec['title'], key=f"sec_{sec['number']}")
+            edited_table.append({"number": sec['number'], "title": edited_title_sec, "content": sec['content'], "references": sec['references']})
         
         submit_edit = st.form_submit_button("Guardar Cambios")
         
@@ -288,136 +352,169 @@ if st.session_state.title and st.session_state.description and st.session_state.
             st.session_state.title = edited_title
             st.session_state.description = edited_description
             st.session_state.table_of_contents = edited_table
-            st.session_state.chapters = edited_table
+            st.session_state.sections = edited_table
             # Reconstruir el contenido Markdown
             st.session_state.markdown_content = f"# {st.session_state.title}\n\n{st.session_state.description}\n\n## Tabla de Contenidos\n\n"
-            for chap in st.session_state.table_of_contents:
-                st.session_state.markdown_content += f"{chap['number']}. {chap['title']}\n"
+            for sec in st.session_state.table_of_contents:
+                st.session_state.markdown_content += f"{sec['number']}. {sec['title']}\n"
             st.session_state.markdown_content += "\n"
             st.success("Información inicial actualizada exitosamente.")
 
-# Mostrar la sección para generar capítulos solo si el título, descripción y tabla de contenidos han sido generados
+# Mostrar la sección para generar análisis solo si el título, descripción y tabla de contenidos han sido generados
 if st.session_state.title and st.session_state.description and st.session_state.table_of_contents:
     st.markdown("---")
-    st.header("Generación de Capítulos")
+    st.header("Generación de Secciones de Análisis")
 
     # Barra de progreso
-    generated_chapters = len([chap for chap in st.session_state.chapters if chap['content']])
-    progress = generated_chapters / st.session_state.total_chapters
+    generated_sections = len([sec for sec in st.session_state.sections if sec['content']])
+    progress = generated_sections / st.session_state.total_sections
     progress_bar = st.progress(progress)
 
-    # Botón para regenerar el capítulo seleccionado
-    if st.session_state.selected_chapter is not None:
+    # Botón para regenerar la sección seleccionada
+    if st.session_state.selected_section is not None:
         with st.container():
-            chapter = st.session_state.chapters[st.session_state.selected_chapter]
-            if chapter['title']:
-                st.subheader(f"Capítulo {chapter['number']}: {chapter['title']}")
+            section = st.session_state.sections[st.session_state.selected_section]
+            if section['title']:
+                st.subheader(f"Sección {section['number']}: {section['title']}")
             else:
-                st.subheader(f"Capítulo {chapter['number']}")
-            if chapter['content']:
-                st.markdown(chapter['content'])
+                st.subheader(f"Sección {section['number']}")
+            if section['content']:
+                # Mostrar contenido de la sección sin las referencias para evitar redundancia
+                if "Referencias" in section['content']:
+                    main_content, ref_content = section['content'].split("Referencias", 1)
+                    st.markdown(main_content)
+                    with st.expander("Ver Referencias"):
+                        st.markdown(ref_content)
+                else:
+                    st.markdown(section['content'])
             else:
-                st.info("Este capítulo aún no ha sido generado.")
-            if st.button("Regenerar Capítulo"):
-                with st.spinner(f"Regenerando capítulo {chapter['number']}..."):
-                    chapter_num = chapter['number']
-                    # Generar un nuevo título para el capítulo
-                    new_title = generate_chapter_title(topic, chapter_num)
+                st.info("Esta sección aún no ha sido generada.")
+            if st.button("Regenerar Sección"):
+                with st.spinner(f"Regenerando sección {section['number']}..."):
+                    sec_num = section['number']
+                    # Generar un nuevo título para la sección si es necesario
+                    new_title = generate_section_title(work_title, work_type, sec_num)
                     if not new_title:
-                        st.error(f"No se pudo generar el título para el capítulo {chapter_num}.")
+                        st.error(f"No se pudo generar el título para la sección {sec_num}.")
                     else:
-                        # Generar el contenido del capítulo
-                        new_content = generate_chapter(topic, chapter_num)
+                        # Generar contenido para la sección
+                        new_content = generate_section(work_title, work_type, sec_num)
                         if new_content:
-                            # Actualizar el capítulo con el nuevo título y contenido
-                            st.session_state.chapters[st.session_state.selected_chapter]['title'] = new_title
-                            st.session_state.chapters[st.session_state.selected_chapter]['content'] = new_content
+                            # Extraer referencias del nuevo contenido
+                            new_references = extract_references(new_content)
+                            # Actualizar la sección con el nuevo título, contenido y referencias
+                            st.session_state.sections[st.session_state.selected_section]['title'] = new_title
+                            st.session_state.sections[st.session_state.selected_section]['content'] = new_content
+                            st.session_state.sections[st.session_state.selected_section]['references'] = new_references
+                            
+                            # Agregar referencias al estado global de referencias si no están duplicadas
+                            for ref in new_references:
+                                if ref not in st.session_state.references:
+                                    st.session_state.references.append(ref)
                             
                             # Actualizar el contenido Markdown
-                            # Primero, eliminar el contenido anterior del capítulo en markdown_content
-                            chapter_heading_old = f"## Capítulo {chapter_num}: " + (chapter['title'] if chapter['title'] else f"Capítulo {chapter_num}") + "\n\n"
-                            chapter_heading_new = f"## Capítulo {chapter_num}: {new_title}\n\n"
+                            if "Referencias" in section['content']:
+                                chapter_heading_old = f"## Sección {sec_num}: " + (section['title'] if section['title'] else f"Sección {sec_num}") + "\n\n"
+                                chapter_main_old, _ = section['content'].split("Referencias", 1)
+                            else:
+                                chapter_heading_old = f"## Sección {sec_num}: " + (section['title'] if section['title'] else f"Sección {sec_num}") + "\n\n"
+                                chapter_main_old = section['content']
+                            
+                            chapter_heading_new = f"## Sección {sec_num}: {new_title}\n\n"
                             chapter_content_new = new_content + "\n\n"
-
+                            
                             # Reemplazar en markdown_content
-                            st.session_state.markdown_content = st.session_state.markdown_content.replace(chapter_heading_old, chapter_heading_new)
-                            # Luego, reemplazar el contenido
-                            st.session_state.markdown_content = st.session_state.markdown_content.replace(chapter_heading_new + chapter['content'] + "\n\n", chapter_heading_new + chapter_content_new)
-
-                            # Actualizar la tabla de contenidos si el título ha cambiado
-                            st.session_state.table_of_contents[chapter_num - 1]['title'] = new_title
-                            # Actualizar la lista de capítulos
-                            st.session_state.chapters[chapter_num - 1]['title'] = new_title
-
-                            st.success(f"Capítulo {chapter_num} regenerado exitosamente.")
-                            # Actualizar la barra de progreso si el capítulo antes no tenía contenido
-                            if not chapter['content']:
-                                generated_chapters += 1
-                                progress = generated_chapters / st.session_state.total_chapters
+                            st.session_state.markdown_content = st.session_state.markdown_content.replace(
+                                chapter_heading_old + chapter_main_old,
+                                chapter_heading_new + chapter_content_new
+                            )
+                            
+                            st.success(f"Sección {sec_num} regenerada exitosamente.")
+                            # Actualizar la barra de progreso si la sección antes no tenía contenido
+                            if not section['content']:
+                                generated_sections += 1
+                                progress = generated_sections / st.session_state.total_sections
                                 progress_bar.progress(progress)
                         else:
-                            st.error(f"No se pudo generar el contenido para el capítulo {chapter_num}.")
+                            st.error(f"No se pudo generar el contenido para la sección {sec_num}.")
 
-    # Botón para generar el siguiente capítulo
-    if st.session_state.current_chapter <= st.session_state.total_chapters:
-        if st.button("Generar Siguiente Capítulo"):
-            with st.spinner(f"Generando capítulo {st.session_state.current_chapter}..."):
-                chapter = st.session_state.chapters[st.session_state.current_chapter - 1]
-                if not chapter['content']:
-                    # Generar título para el capítulo
-                    generated_title = generate_chapter_title(topic, st.session_state.current_chapter)
+    # Botón para generar la siguiente sección
+    if st.session_state.current_section <= st.session_state.total_sections:
+        if st.button("Generar Siguiente Sección"):
+            with st.spinner(f"Generando sección {st.session_state.current_section}..."):
+                section = st.session_state.sections[st.session_state.current_section - 1]
+                if not section['content']:
+                    # Generar título para la sección
+                    generated_title = generate_section_title(work_title, work_type, st.session_state.current_section)
                     if not generated_title:
-                        st.error(f"No se pudo generar el título para el capítulo {st.session_state.current_chapter}.")
+                        st.error(f"No se pudo generar el título para la sección {st.session_state.current_section}.")
                     else:
-                        # Generar contenido para el capítulo
-                        generated_content = generate_chapter(topic, st.session_state.current_chapter)
+                        # Generar contenido para la sección
+                        generated_content = generate_section(work_title, work_type, st.session_state.current_section)
                         if generated_content:
-                            # Actualizar el capítulo con título y contenido
-                            st.session_state.chapters[st.session_state.current_chapter - 1]['title'] = generated_title
-                            st.session_state.chapters[st.session_state.current_chapter - 1]['content'] = generated_content
+                            # Extraer referencias del contenido generado
+                            generated_references = extract_references(generated_content)
+                            # Actualizar la sección con título, contenido y referencias
+                            st.session_state.sections[st.session_state.current_section - 1]['title'] = generated_title
+                            st.session_state.sections[st.session_state.current_section - 1]['content'] = generated_content
+                            st.session_state.sections[st.session_state.current_section - 1]['references'] = generated_references
+                            
+                            # Agregar referencias al estado global de referencias si no están duplicadas
+                            for ref in generated_references:
+                                if ref not in st.session_state.references:
+                                    st.session_state.references.append(ref)
                             
                             # Agregar al contenido Markdown
-                            chapter_heading = f"## Capítulo {st.session_state.current_chapter}: {generated_title}\n\n"
-                            chapter_content = generated_content + "\n\n"
-                            st.session_state.markdown_content += f"{chapter_heading}{chapter_content}"
+                            section_heading = f"## Sección {st.session_state.current_section}: {generated_title}\n\n"
+                            section_content = generated_content + "\n\n"
+                            st.session_state.markdown_content += f"{section_heading}{section_content}"
                             
-                            st.success(f"Capítulo {st.session_state.current_chapter} generado exitosamente.")
-                            st.session_state.current_chapter += 1
+                            st.success(f"Sección {st.session_state.current_section} generada exitosamente.")
+                            st.session_state.current_section += 1
                             
                             # Actualizar la barra de progreso
-                            generated_chapters += 1
-                            progress = generated_chapters / st.session_state.total_chapters
+                            generated_sections += 1
+                            progress = generated_sections / st.session_state.total_sections
                             progress_bar.progress(progress)
                         else:
-                            st.error(f"No se pudo generar el contenido para el capítulo {st.session_state.current_chapter}.")
+                            st.error(f"No se pudo generar el contenido para la sección {st.session_state.current_section}.")
                 else:
-                    st.info(f"El capítulo {st.session_state.current_chapter} ya ha sido generado.")
+                    st.info(f"La sección {st.session_state.current_section} ya ha sido generada.")
 
     # Actualizar la barra de progreso hasta completar
-    if len([chap for chap in st.session_state.chapters if chap['content']]) == st.session_state.total_chapters:
+    if len([sec for sec in st.session_state.sections if sec['content']]) == st.session_state.total_sections:
         st.session_state.generation_complete = True
 
     # Botones para exportar a Word
-    if st.session_state.chapters:
+    if st.session_state.sections:
         with st.spinner("Preparando la exportación..."):
             # Exportar contenido parcial
             partial_markdown = f"# {st.session_state.title}\n\n{st.session_state.description}\n\n## Tabla de Contenidos\n\n"
-            for chap in st.session_state.chapters:
-                if chap['content']:
-                    partial_markdown += f"{chap['number']}. {chap['title']}\n"
+            for sec in st.session_state.sections:
+                if sec['content']:
+                    partial_markdown += f"{sec['number']}. {sec['title']}\n"
             partial_markdown += "\n"
-            for chap in st.session_state.chapters:
-                if chap['content']:
-                    partial_markdown += f"## Capítulo {chap['number']}: {chap['title']}\n\n{chap['content']}\n\n"
+            for sec in st.session_state.sections:
+                if sec['content']:
+                    partial_markdown += f"## Sección {sec['number']}: {sec['title']}\n\n{sec['content']}\n\n"
                 else:
-                    break  # Solo incluir capítulos generados hasta el momento
-            partial_word_file = export_to_word(partial_markdown)
+                    break  # Solo incluir secciones generadas hasta el momento
+            # Agregar referencias al final si hay
+            if st.session_state.references:
+                partial_markdown += "## Referencias\n\n"
+                for ref in st.session_state.references:
+                    partial_markdown += f"{ref}\n"
+            partial_word_file = export_to_word(partial_markdown, st.session_state.references)
             
             # Exportar contenido completo
             if st.session_state.generation_complete:
                 complete_markdown = st.session_state.markdown_content
-                complete_word_file = export_to_word(complete_markdown)
-                st.success("Preparado para descargar el manual completo.")
+                # Agregar todas las referencias al final
+                complete_markdown += "\n## Referencias\n\n"
+                for ref in st.session_state.references:
+                    complete_markdown += f"{ref}\n"
+                complete_word_file = export_to_word(complete_markdown, st.session_state.references)
+                st.success("Preparado para descargar el estudio completo.")
             else:
                 complete_word_file = None
 
@@ -432,7 +529,7 @@ if st.session_state.title and st.session_state.description and st.session_state.
             # Botón para descargar contenido completo en Word (solo si está completo)
             if st.session_state.generation_complete:
                 st.download_button(
-                    label="Descargar Manual Completo en Word",
+                    label="Descargar Estudio Completo en Word",
                     data=complete_word_file,
                     file_name=f"{st.session_state.title.replace(' ', '_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
