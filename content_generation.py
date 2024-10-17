@@ -85,9 +85,12 @@ Sección {total_sections}: [Título de la Sección {total_sections}]
             if line.startswith("Sección"):
                 parts = line.split(":")
                 if len(parts) >= 2:
-                    sec_num = int(parts[0].split(" ")[1])
-                    sec_title = parts[1].strip()
-                    table.append({"number": sec_num, "title": sec_title, "content": "", "references": []})
+                    try:
+                        sec_num = int(parts[0].split(" ")[1])
+                        sec_title = parts[1].strip()
+                        table.append({"number": sec_num, "title": sec_title, "content": "", "references": []})
+                    except ValueError:
+                        continue  # Salta líneas que no cumplen el formato esperado
         return table
     return None
 
@@ -126,34 +129,34 @@ def generate_section(work_title, author, work_type, section_num):
         analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}" de {author}.
         
 Tipo de obra: Literatura
-        
+
 La sección debe incluir análisis de personajes, técnicas narrativas, contexto histórico, biografía del autor y cualquier otro análisis relevante.
-        
+
 El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
 """
     elif work_type.lower() == "filosófica":
         analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}" de {author}.
         
 Tipo de obra: Filosofía
-        
+
 La sección debe incluir estudio del autor, contexto histórico, ideas principales, discusiones académicas en torno a las ideas presentadas y cualquier otro análisis relevante.
-        
+
 El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
 """
     elif work_type.lower() == "política":
         analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}" de {author}.
         
 Tipo de obra: Política
-        
+
 La sección debe incluir estudio del autor, contexto histórico, teorías políticas presentadas, impacto en la sociedad, discusiones académicas y cualquier otro análisis relevante.
-        
+
 El contenido debe ser claro, educativo y bien estructurado, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
 """
     else:
         analysis_prompt = f"""Escribe el contenido de la sección {section_num} para un estudio detallado de la obra "{work_title}" de {author}.
         
 Tipo de obra: {work_type}
-        
+
 La sección debe incluir análisis detallado relevante al tipo de obra, estructurado de manera clara y educativa, con aproximadamente 3000 tokens. Incluye referencias académicas pertinentes al final de la sección en formato APA.
 """
     
