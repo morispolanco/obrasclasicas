@@ -4,6 +4,7 @@ import streamlit as st
 from open_library import search_open_library, extract_work_info
 from content_generation import generate_title_description, generate_table_of_contents, generate_section_title, generate_section
 from utils import export_to_word
+from predefined_lists import PREDEFINED_WORKS, PREDEFINED_AUTHORS
 import markdown
 from bs4 import BeautifulSoup
 from io import BytesIO
@@ -21,8 +22,7 @@ st.title("Generador de Estudios de Obras Clásicas")
 # Descripción de la aplicación
 st.markdown("""
 Esta aplicación genera automáticamente estudios detallados de grandes obras clásicas en campos como la literatura, filosofía, política, entre otros.
-Puedes generar secciones de análisis una por una, lo que te permite pausar el proceso en cualquier momento. Además, puedes editar la información inicial y regenerar secciones específicas si lo deseas.
-Finalmente, puedes exportar el estudio a un archivo en formato Word, ya sea completo o parcial, con referencias académicas incluidas.
+Puedes seleccionar una obra de una lista predefinida o ingresar una obra y autor personalizados. Además, puedes generar secciones de análisis una por una, lo que te permite pausar el proceso en cualquier momento. Finalmente, puedes exportar el estudio a un archivo en formato Word, ya sea completo o parcial, con referencias académicas incluidas.
 """)
 
 # Inicialización de variables en el estado de la sesión
@@ -92,17 +92,38 @@ with st.sidebar:
     else:
         st.info("No hay secciones generadas aún.")
 
-# Entrada de usuario para el título de la obra
-work_title = st.text_input("Ingresa el título de la obra clásica:", "")
+# Entrada de usuario para seleccionar una obra predefinida o personalizada
+st.header("Selecciona una Obra Clásica")
 
-# Entrada de usuario para el autor de la obra
-author = st.text_input("Ingresa el autor de la obra:", "")
+# Radio buttons para elegir entre lista predefinida o personalizada
+selection_type = st.radio(
+    "¿Deseas seleccionar una obra de la lista predefinida o ingresar una personalizada?",
+    ("Lista Predefinida", "Personalizada")
+)
+
+if selection_type == "Lista Predefinida":
+    # Dropdown para seleccionar una obra predefinida
+    selected_work = st.selectbox(
+        "Selecciona una obra:",
+        options=PREDEFINED_WORKS
+    )
+    # Obtener el autor correspondiente
+    selected_author = PREDEFINED_AUTHORS[PREDEFINED_WORKS.index(selected_work)]
+    st.write(f"**Autor:** {selected_author}")
+    work_title = selected_work
+    author = selected_author
+else:
+    # Entrada de usuario para el título de la obra
+    work_title = st.text_input("Ingresa el título de la obra clásica:", "")
+    
+    # Entrada de usuario para el autor de la obra
+    author = st.text_input("Ingresa el autor de la obra:", "")
 
 # Botón para generar título, descripción y tabla de contenidos
 if not st.session_state.title:
-    if st.button("Generar Título, Descripción y Tabla de Contenidos"):
+    if st.button("Generar Estudio"):
         if not work_title or not author:
-            st.warning("Por favor, ingresa tanto el título como el autor de la obra para generar el estudio.")
+            st.warning("Por favor, completa tanto el título como el autor de la obra para generar el estudio.")
         else:
             with st.spinner("Buscando información de la obra en Open Library..."):
                 work = search_open_library(work_title, author)
@@ -144,7 +165,7 @@ if not st.session_state.title:
                 else:
                     st.error("No se encontró información sobre la obra proporcionada en Open Library.")
 else:
-    st.info("El título, descripción y tabla de contenidos ya han sido generados. Si deseas generar nuevamente, reinicia la generación.")
+    st.info("El estudio ya ha sido generado. Si deseas generar nuevamente, reinicia la generación.")
 
 # Permitir edición de la información inicial si ya se ha generado
 if st.session_state.title and st.session_state.description and st.session_state.table_of_contents:
